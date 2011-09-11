@@ -23,6 +23,7 @@ import objc
 #from Foundation import NSObject
 NSObject = objc.lookUpClass("NSObject")
 NSAutoreleasePool = objc.lookUpClass("NSAutoreleasePool")
+NSScriptCommand = objc.lookUpClass("NSScriptCommand")
 
 #pool = NSAutoreleasePool.alloc().init()
 
@@ -60,7 +61,7 @@ def test2():
 	return o
 
 #do_in_mainthread(test)
-o = do_in_mainthread(test2)
+#o = do_in_mainthread(test2)
 
 def replaceRunCode(ipshell):
 	runcodeattr = "run_code" if hasattr(ipshell, "run_code") else "runcode"
@@ -68,3 +69,51 @@ def replaceRunCode(ipshell):
 	def __ipython_runcode(code_obj):
 		return do_in_mainthread(lambda: __ipython_orig_runcode(code_obj))
 	setattr(ipshell, runcodeattr, __ipython_runcode)
+
+def message_via_html(title, msg, open_callback):
+	import BaseHTTPServer
+	class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
+		got_callback = False
+		def log_message(self, format, *args): pass
+		def do_GET(webself):
+			if webself.path == "/":
+				webself.send_response(200)
+				webself.send_header("Content-type", "text/html")
+				webself.end_headers()
+				import cgi
+				webself.wfile.write(
+					"<html><head><title>" + cgi.escape(title) + "</title></head>" +
+					"<body><pre>" +	cgi.escape(msg) + "</pre></body></html>")
+				webself.__class__.got_callback = True
+			else:
+				webself.send_response(404)
+				webself.end_headers()
+
+	import BaseHTTPServer
+	httpd = BaseHTTPServer.HTTPServer(("", 0), Handler)
+	_,port = httpd.server_address
+
+	url = "http://localhost:%d/" % port
+	open_callback(url)
+
+	while not Handler.got_callback:
+		httpd.handle_request()
+
+def openPopupWindow():
+	def open_window():
+		o = WindowAppleScript.alloc().init()
+		w = o.nativeHandle()
+		w.setIsVisible_(0)
+		return o, w
+	o, w = do_in_mainthread(open_window)
+	def open_callback(url):
+		t0 = o.tabs()[0]
+		arg = NSScriptCommand.alloc().init()
+		arg.setArguments_({"javascript":
+			"""
+			window.open("%s", "_blank", "toolbar=no,menubar=no,location=no");
+			""" % url})
+		t0.handlesExecuteJavascriptScriptCommand_(arg)
+	message_via_html("Popuptest", "", lambda url: do_in_mainthread(lambda: open_callback(url)))
+	do_in_mainthread(lambda: w.close())
+	
