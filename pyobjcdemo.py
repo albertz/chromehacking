@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+# http://codesearch.google.com/#u_9_nDrchrw/pygame-1.7.1release/lib/macosx.py&ct=rc&cd=6&q=GetCurrentProcess%20ApplicationServices%20%20file:.py
+
 import os
 import sys
 
