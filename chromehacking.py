@@ -17,7 +17,7 @@
 
 # http://pyobjc.sourceforge.net/documentation/pyobjc-core/intro.html
 
-import sys, time
+import sys, time, os, os.path
 
 import objc
 #from Foundation import NSObject
@@ -141,53 +141,8 @@ def openPopupWindow(url):
 
 def make_dock_icon():
 	from subprocess import Popen, PIPE, STDOUT
-	p = Popen(["python"], stdin=PIPE, stdout=PIPE, stderr=sys.stderr)
-	p.stdin.write(
-"""
-import os
-import sys
-
-from Foundation import *
-from AppKit import *
-import objc
-
-def setupWindowMenu(app):
-    windowMenu = NSMenu.alloc().initWithTitle_('Window')
-    windowMenu.retain()
-    menuItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Minimize', 'performMiniaturize:', 'm')
-    windowMenu.addItem_(menuItem)
-    windowMenuItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Window', None, '')
-    windowMenuItem.setSubmenu_(windowMenu)
-    app.mainMenu().addItem_(windowMenuItem)
-    app.setWindowsMenu_(windowMenu)
-
-def setIcon(app, icon_data):
-    data = NSData.dataWithBytes_length_(icon_data, len(icon_data))
-    if data is None:
-        return
-    img = NSImage.alloc().initWithData_(data)
-    if img is None:
-        return
-    app.setApplicationIconImage_(img)
-
-app = NSApplication.sharedApplication()
-
-class MyAppDelegate(NSObject):
-	def applicationShouldHandleReopen_hasVisibleWindows_(self, app, flag):
-		print "click"
-
-delegate = MyAppDelegate.alloc().init()
-app.setDelegate_(delegate)
-
-mainMenu = NSMenu.alloc().init()
-app.setMainMenu_(mainMenu)
-setupWindowMenu(app)
-
-app.finishLaunching()
-app.updateWindows()
-app.activateIgnoringOtherApps_(True)
-
-app.run()
-""")
+	scriptfn = os.path.dirname(__file__) + "/pyobjcdemo.py"
+	p = Popen(["python", scriptfn], stdin=PIPE, stdout=PIPE, stderr=sys.stderr)
 	p.stdin.close()
 	return p
+
