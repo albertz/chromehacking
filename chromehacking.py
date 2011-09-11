@@ -17,13 +17,16 @@
 
 # http://pyobjc.sourceforge.net/documentation/pyobjc-core/intro.html
 
-import sys
+import sys, time
 
 import objc
 #from Foundation import NSObject
 NSObject = objc.lookUpClass("NSObject")
 NSAutoreleasePool = objc.lookUpClass("NSAutoreleasePool")
 NSScriptCommand = objc.lookUpClass("NSScriptCommand")
+NSThread = objc.lookUpClass("NSThread")
+app = objc.lookUpClass("NSApplication").sharedApplication()
+FramedBrowserWindow = objc.lookUpClass("FramedBrowserWindow")
 
 #pool = NSAutoreleasePool.alloc().init()
 
@@ -94,12 +97,20 @@ def message_via_html(title, msg, open_callback):
 	_,port = httpd.server_address
 
 	url = "http://localhost:%d/" % port
-	open_callback(url)
+	ret = open_callback(url)
 
 	while not Handler.got_callback:
 		httpd.handle_request()
+		
+	return ret
 
-def openPopupWindow():
+def isMainThread(): return NSThread.isMainThread()
+
+def browserWindows():
+	return [ w for w in app.windows() if isinstance(w, FramedBrowserWindow) ]
+
+def openPopupWindow(url):
+	assert not isMainThread()
 	def open_window():
 		o = WindowAppleScript.alloc().init()
 		w = o.nativeHandle()
@@ -114,6 +125,16 @@ def openPopupWindow():
 			window.open("%s", "_blank", "toolbar=no,menubar=no,location=no");
 			""" % url})
 		t0.handlesExecuteJavascriptScriptCommand_(arg)
-	message_via_html("Popuptest", "", lambda url: do_in_mainthread(lambda: open_callback(url)))
+		return url
+	dummyurl = message_via_html("", "", lambda url: do_in_mainthread(lambda: open_callback(url)))
 	do_in_mainthread(lambda: w.close())
-	
+	def find_window():
+		for w in app.appleScriptWindows():
+			tabs = list(w.tabs())
+			if len(tabs) == 0: continue
+			while tabs[0].URL() is None: time.sleep(0.001)				
+			if dummyurl == tabs[0].URL(): return w
+	w = find_window()
+	assert w is not None
+	do_in_mainthread(lambda: w.tabs()[0].setURL_(url))
+	return w
