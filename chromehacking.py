@@ -140,35 +140,42 @@ def openPopupWindow(url):
 	return w
 
 def make_dock_icon():
-	import os
-	if os.fork() != 0: return
-	
-	orig_exchook = sys.excepthook
-	def new_exchook(*args):
-		orig_exchook(*args)
-		os._exit(0)
-	sys.excepthook = new_exchook
-	
-	sys.stdin = sys.__stdin__
-	from AppKit import NSApp, NSStringPboardType, NSObject
-	
-	def serviceSelector(fn):
-		# this is the signature of service selectors
-		return objc.selector(fn, signature="v@:@@o^@")
-	
-	class MyAppDelegate(NSObject):
-		"My Application Delegate."
-	
-		def applicationDidFinishLaunching_(self,sender):
-			NSApp.setServicesProvider_(self)
-	
-		def doString_userData_error_(self,pboard,userData,error):
-			pboardString = pboard.stringForType_(NSStringPboardType)
-			NSLog(u"%s" % pboardString)
-	
-		#lookupString_userData_error_ = serviceSelector(lookupString_userData_error_)
-	
-	from PyObjCTools import AppHelper
-	AppHelper.runEventLoop()
-	os._exit(0)
-	
+	from subprocess import Popen, PIPE, STDOUT
+	p = Popen(["python"], stdin=PIPE, stdout=sys.stdout, stderr=STDOUT)
+	p.stdin.write(
+"""
+import os, sys
+from AppKit import NSApp, NSApplication, NSNotificationCenter, NSApplicationDidFinishLaunchingNotification
+from Foundation import NSAutoreleasePool, NSObject
+
+def app_main():
+	pass
+
+pool = NSAutoreleasePool.alloc().init()
+
+class MyApplicationActivator(NSObject):
+
+	def activateNow_(self, aNotification):
+		try:
+			app_main()
+		except:
+			sys.excepthook(*sys.exc_info())
+
+activator = MyApplicationActivator.alloc().init()
+NSNotificationCenter.defaultCenter().addObserver_selector_name_object_(
+	activator,
+	'activateNow:',
+	NSApplicationDidFinishLaunchingNotification,
+	None,
+)
+
+NSApplication.sharedApplication()
+NSApp().activateIgnoringOtherApps_(True)
+NSApp().finishLaunching()
+NSApp().updateWindows()
+NSApp().run()
+
+#del pool
+""")
+	p.stdin.close()
+	return p
