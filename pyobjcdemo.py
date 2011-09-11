@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 # http://codesearch.google.com/#u_9_nDrchrw/pygame-1.7.1release/lib/macosx.py&ct=rc&cd=6&q=GetCurrentProcess%20ApplicationServices%20%20file:.py
+# http://codesearch.google.com/#TjZxI4W0_Cw/trunk/cocos/audio/SDL/darwin.py&ct=rc&cd=2&q=GetCurrentProcess%20ApplicationServices%20%20file:.py
 
 import os
 import sys
@@ -29,6 +30,13 @@ def setIcon(app, icon_data):
     app.setApplicationIconImage_(img)
 
 app = NSApplication.sharedApplication()
+
+class MyAppDelegate(NSObject):
+	def applicationShouldHandleReopen_hasVisibleWindows_(self, app, flag):
+		print "click"
+
+delegate = MyAppDelegate.alloc().init()
+app.setDelegate_(delegate)
 
 mainMenu = NSMenu.alloc().init()
 app.setMainMenu_(mainMenu)

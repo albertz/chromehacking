@@ -141,73 +141,53 @@ def openPopupWindow(url):
 
 def make_dock_icon():
 	from subprocess import Popen, PIPE, STDOUT
-	p = Popen(["python"], stdin=PIPE, stdout=sys.stdout, stderr=STDOUT)
+	p = Popen(["python"], stdin=PIPE, stdout=PIPE, stderr=sys.stderr)
 	p.stdin.write(
 """
-import os, sys
+import os
+import sys
 
-import objc
 from Foundation import *
 from AppKit import *
-from PyObjCTools import AppHelper
+import objc
 
-class MyApp(NSApplication):
+def setupWindowMenu(app):
+    windowMenu = NSMenu.alloc().initWithTitle_('Window')
+    windowMenu.retain()
+    menuItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Minimize', 'performMiniaturize:', 'm')
+    windowMenu.addItem_(menuItem)
+    windowMenuItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Window', None, '')
+    windowMenuItem.setSubmenu_(windowMenu)
+    app.mainMenu().addItem_(windowMenuItem)
+    app.setWindowsMenu_(windowMenu)
 
-	def XXfinishLaunching(self):
-		print "fooo"
-		# Make statusbar item
-		statusbar = NSStatusBar.systemStatusBar()
-		self.statusitem = statusbar.statusItemWithLength_(NSVariableStatusItemLength)
-		self.icon = NSImage.alloc().initByReferencingFile_('icon.png')
-		self.icon.setScalesWhenResized_(True)
-		self.icon.setSize_((20, 20))
-		self.statusitem.setImage_(self.icon)
-		
-		#make the menu
-		self.menubarMenu = NSMenu.alloc().init()
-		
-		self.menuItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Click Me', 'clicked:', '')
-		self.menubarMenu.addItem_(self.menuItem)
-		
-		self.quit = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Quit', 'terminate:', '')
-		self.menubarMenu.addItem_(self.quit)
-		
-		#add menu to statusitem
-		self.statusitem.setMenu_(self.menubarMenu)
-		self.statusitem.setToolTip_('My App')
+def setIcon(app, icon_data):
+    data = NSData.dataWithBytes_length_(icon_data, len(icon_data))
+    if data is None:
+        return
+    img = NSImage.alloc().initWithData_(data)
+    if img is None:
+        return
+    app.setApplicationIconImage_(img)
 
-		print "baaar"
+app = NSApplication.sharedApplication()
 
-	def clicked_(self, notification):
-		NSLog('clicked!')
-	
-	def applicationDidFinishLaunching_(self,sender):
-	    NSApp.setServicesProvider_(self)
-	
-	def doString_userData_error_(self,pboard,userData,error):
-		pboardString = pboard.stringForType_(NSStringPboardType)
-		NSLog(u"%s" % pboardString)
-	
-	#lookupString_userData_error_ = serviceSelector(lookupString_userData_error_)
+class MyAppDelegate(NSObject):
+	def applicationShouldHandleReopen_hasVisibleWindows_(self, app, flag):
+		print "click"
 
-def serviceSelector(fn):
-    # this is the signature of service selectors
-    return objc.selector(fn, signature="v@:@@o^@")
+delegate = MyAppDelegate.alloc().init()
+app.setDelegate_(delegate)
 
+mainMenu = NSMenu.alloc().init()
+app.setMainMenu_(mainMenu)
+setupWindowMenu(app)
 
-MyApp.sharedApplication()
-NSApp().activateIgnoringOtherApps_(True)
-#NSApp().finishLaunching()
-#NSApp().updateWindows()
-NSApp().run()
-print "XXX1"
-MyApp.run()
-print "XXX2"
+app.finishLaunching()
+app.updateWindows()
+app.activateIgnoringOtherApps_(True)
 
-AppHelper.runEventLoop()
-print "XXX3"
-
-#del pool
+app.run()
 """)
 	p.stdin.close()
 	return p
