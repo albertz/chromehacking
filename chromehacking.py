@@ -138,3 +138,37 @@ def openPopupWindow(url):
 	assert w is not None
 	do_in_mainthread(lambda: w.tabs()[0].setURL_(url))
 	return w
+
+def make_dock_icon():
+	import os
+	if os.fork() != 0: return
+	
+	orig_exchook = sys.excepthook
+	def new_exchook(*args):
+		orig_exchook(*args)
+		os._exit(0)
+	sys.excepthook = new_exchook
+	
+	sys.stdin = sys.__stdin__
+	from AppKit import NSApp, NSStringPboardType, NSObject
+	
+	def serviceSelector(fn):
+		# this is the signature of service selectors
+		return objc.selector(fn, signature="v@:@@o^@")
+	
+	class MyAppDelegate(NSObject):
+		"My Application Delegate."
+	
+		def applicationDidFinishLaunching_(self,sender):
+			NSApp.setServicesProvider_(self)
+	
+		def doString_userData_error_(self,pboard,userData,error):
+			pboardString = pboard.stringForType_(NSStringPboardType)
+			NSLog(u"%s" % pboardString)
+	
+		#lookupString_userData_error_ = serviceSelector(lookupString_userData_error_)
+	
+	from PyObjCTools import AppHelper
+	AppHelper.runEventLoop()
+	os._exit(0)
+	
