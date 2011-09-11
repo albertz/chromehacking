@@ -10,16 +10,6 @@ from Foundation import *
 from AppKit import *
 import objc
 
-def setupWindowMenu(app):
-    windowMenu = NSMenu.alloc().initWithTitle_('Window')
-    windowMenu.retain()
-    menuItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Minimize', 'performMiniaturize:', 'm')
-    windowMenu.addItem_(menuItem)
-    windowMenuItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Window', None, '')
-    windowMenuItem.setSubmenu_(windowMenu)
-    app.mainMenu().addItem_(windowMenuItem)
-    app.setWindowsMenu_(windowMenu)
-
 def setIcon(app, icon_data):
     data = NSData.dataWithBytes_length_(icon_data, len(icon_data))
     if data is None:
@@ -35,15 +25,34 @@ class MyAppDelegate(NSObject):
 	def applicationShouldHandleReopen_hasVisibleWindows_(self, app, flag):
 		print "click"
 
+	def applicationDidFinishLaunching_(self, notification):
+		#statusbar = NSStatusBar.systemStatusBar()
+		#self.statusitem = statusbar.statusItemWithLength_(NSVariableStatusItemLength)
+		
+		menu = NSMenu.alloc().init()
+		menu.addItem_(NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('View Trash', 'view:', ''))
+		menu.addItem_(NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Empty Trash', 'empty:', ''))
+		menu.addItem_(NSMenuItem.separatorItem())
+		menu.addItem_(NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Quit', 'terminate:', 'q'))
+		
+		#self.statusitem.setMenu_(menu)
+		
+		windowMenuItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Window', None, '')
+		windowMenuItem.setSubmenu_(menu)
+		
+		app.setMainMenu_(NSMenu.alloc().init())
+		app.mainMenu().addItem_(windowMenuItem)
+		app.setWindowsMenu_(menu)
+		
+		self.window = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+			NSMakeRect(100,100,300,400),
+			NSTitledWindowMask | NSMiniaturizableWindowMask | NSClosableWindowMask,
+			NSBackingStoreBuffered,
+			objc.NO)
+		
 delegate = MyAppDelegate.alloc().init()
 app.setDelegate_(delegate)
-
-mainMenu = NSMenu.alloc().init()
-app.setMainMenu_(mainMenu)
-setupWindowMenu(app)
-
 app.finishLaunching()
 app.updateWindows()
 app.activateIgnoringOtherApps_(True)
-
 app.run()
