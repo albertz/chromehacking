@@ -24,7 +24,7 @@ import objc
 NSObject = objc.lookUpClass("NSObject")
 NSAutoreleasePool = objc.lookUpClass("NSAutoreleasePool")
 
-pool = NSAutoreleasePool.alloc().init()
+#pool = NSAutoreleasePool.alloc().init()
 
 try:
 	class PyAsyncCallHelper(NSObject):
