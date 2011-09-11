@@ -45,10 +45,11 @@ class MyAppDelegate(NSObject):
 		app.setWindowsMenu_(menu)
 		
 		self.window = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
-			NSMakeRect(100,100,300,400),
-			NSTitledWindowMask | NSMiniaturizableWindowMask | NSClosableWindowMask,
+			NSMakeRect(100,50,300,400),
+			NSTitledWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask | NSClosableWindowMask,
 			NSBackingStoreBuffered,
 			objc.NO)
+		self.window.setIsVisible_(True)
 		
 delegate = MyAppDelegate.alloc().init()
 app.setDelegate_(delegate)
