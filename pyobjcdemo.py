@@ -8,18 +8,6 @@ import objc
 import MacOS
 
 # Need to do this if not running with a nib
-def setupAppleMenu(app):
-    return
-    appleMenuController = NSAppleMenuController.alloc().init()
-    appleMenuController.retain()
-    appleMenu = NSMenu.alloc().initWithTitle_('')
-    appleMenuItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('', None, '')
-    appleMenuItem.setSubmenu_(appleMenu)
-    app.mainMenu().addItem_(appleMenuItem)
-    appleMenuController.controlMenu_(appleMenu)
-    app.mainMenu().removeItem_(appleMenuItem)
-
-# Need to do this if not running with a nib
 def setupWindowMenu(app):
     windowMenu = NSMenu.alloc().initWithTitle_('Window')
     windowMenu.retain()
@@ -31,18 +19,16 @@ def setupWindowMenu(app):
     app.setWindowsMenu_(windowMenu)
 
 # Used to cleanly terminate
-class SDLAppDelegate(NSObject):
+class MyAppDelegate(NSObject):
     def applicationShouldTerminate_(self, app):
-        event = SDL.events.SDL_Event()
-        event.type = SDL_QUIT
-        SDL.events.SDL_PushEvent(event)
-        return NSTerminateLater
+        #event = SDL.events.SDL_Event()
+        #event.type = SDL_QUIT
+        #SDL.events.SDL_PushEvent(event)
+        #return NSTerminateLater
+        return True
 
     def windowUpdateNotification_(self, notification):
         win = notification.object()
-        if not SDL.dll.version_compatible((1, 2, 8)) and isinstance(win, objc.lookUpClass('SDL_QuartzWindow')):
-            # Seems to be a retain count bug in SDL.. workaround!
-            win.retain()
         NSNotificationCenter.defaultCenter().removeObserver_name_object_(
             self, NSWindowDidUpdateNotification, None)
         self.release()
@@ -58,7 +44,7 @@ def setIcon(app, icon_data):
 
 def install():
     app = NSApplication.sharedApplication()
-    appDelegate = SDLAppDelegate.alloc().init()
+    appDelegate = MyAppDelegate.alloc().init()
     app.setDelegate_(appDelegate)
     appDelegate.retain()
     NSNotificationCenter.defaultCenter().addObserver_selector_name_object_(
@@ -69,7 +55,6 @@ def install():
     if not app.mainMenu():
         mainMenu = NSMenu.alloc().init()
         app.setMainMenu_(mainMenu)
-        setupAppleMenu(app)
         setupWindowMenu(app)
     app.finishLaunching()
     app.updateWindows()
@@ -129,8 +114,10 @@ def WMEnable(name=None):
 
 
 def init():
+    print "X1"
     if not (MacOS.WMAvailable() or WMEnable()):
         raise ImportError, "Can not access the window manager.  Use py2app or execute with the pythonw script."
+    print "X2"
     if not NSApp():
         # running outside of a bundle
         install()
