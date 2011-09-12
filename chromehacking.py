@@ -210,16 +210,17 @@ def replace_close_widget(w, clazz=CustomCloseWidget):
 
 close_callbacks = {} # FramedBrowserWindow id -> callback
 
-class FramedBrowserWindow(objc.Category(FramedBrowserWindow)):
-	def close(self):
+class BrowserWindowController(objc.Category(BrowserWindowController)):
+	def myWindowShouldClose_(self, sender):
+		print "myWindowShouldClose", self, sender
 		if self in close_callbacks:
 			callback = close_callbacks[self]
 			print "close callback:", callback
 			ret = callback()
-			if not ret: return
+			if not ret: return objc.NO
 			print "really closing"
 			del close_callbacks[self]
-		NSWindow.close(self)
+		return self.myWindowShouldClose_(sender)
 
 from ctypes import *
 capi = pythonapi
@@ -245,10 +246,10 @@ capi.method_exchangeImplementations.restype = None
 capi.method_exchangeImplementations.argtypes = [c_void_p, c_void_p]
 
 def hook_into_close():
-	clazz = capi.objc_getClass("FramedBrowserWindow")
-	origCloseSel = capi_get_selector("close")
+	clazz = capi.objc_getClass("BrowserWindowController")
+	origCloseSel = capi_get_selector("windowShouldClose:")
 	origClose = capi.class_getInstanceMethod(clazz, origCloseSel)
-	newClose = capi.class_getInstanceMethod(clazz, capi_get_selector("myClose"))
-	origClosePlaceholder = capi.class_getInstanceMethod(clazz, capi_get_selector("origClose"))
+	newClose = capi.class_getInstanceMethod(clazz, capi_get_selector("myWindowShouldClose:"))
+	#origClosePlaceholder = capi.class_getInstanceMethod(clazz, capi_get_selector("origClose"))
 	capi.method_exchangeImplementations(origClose, newClose)
-	capi.method_exchangeImplementations(origClosePlaceholder, origClose)
+	#capi.method_exchangeImplementations(origClosePlaceholder, origClose)
