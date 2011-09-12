@@ -235,6 +235,15 @@ def remove_close_callback(_o):
 	for o in objsnet_list:
 		del close_callbacks[o]
 		del _close_callbacks_objsnet[o]
+def check_close_callback(o):
+	if o in close_callbacks:
+		callback = close_callbacks[o]
+		print "close callback:", callback
+		ret = callback()
+		if not ret: return False
+		print "really closing"
+		remove_close_callback(o)
+	return True
 
 # copied from objc.signature to avoid warning
 def my_signature(signature, **kw):
@@ -249,43 +258,40 @@ class FramedBrowserWindow(objc.Category(FramedBrowserWindow)):
 	@my_signature(performCloseSig)
 	def performClose_(self, sender):
 		print "myPerformClose", self, sender
-		if self in close_callbacks:
-			callback = close_callbacks[self]
-			print "close callback:", callback
-			ret = callback()
-			if not ret: return
-			print "really closing"
-			del close_callbacks[self]
+		#capi_backtrace()
+		if not check_close_callback(self): return
 		NSWindow.performClose_(self, sender)
 
 windowWillCloseSig = "c12@0:4@8" # BrowserWindowController.windowWillClose_.signature
+commandDispatchSig = "v12@0:4@8"
 class BrowserWindowController(objc.Category(BrowserWindowController)):
 	@my_signature(windowWillCloseSig)
 	def myWindowShouldClose_(self, sender):
 		print "myWindowShouldClose", self, sender
-		if self in close_callbacks:
-			callback = close_callbacks[self]
-			print "close callback:", callback
-			ret = callback()
-			if not ret: return objc.NO
-			print "really closing"
-			remove_close_callback(self)
+		if not check_close_callback(self): return objc.NO
 		return self.myWindowShouldClose_(sender) # this is no recursion when we exchanged the methods
 
+	@my_signature(commandDispatchSig)
+	def myCommandDispatch_(self, cmd):
+		print "myCommandDispatch_", self, cmd
+		if cmd.tag() == 34015: # IDC_CLOSE_TAB
+			if not check_close_callback(self): return			
+		self.myCommandDispatch_(cmd)
+
 closeTabSig = "c12@0:4@8" # TabStripController.closeTab_.signature
+commandDispatchForContrSig = "v16@0:4i8@12" # TabStripController.commandDispatch_forController_.signature
 class TabStripController(objc.Category(TabStripController)):
 	@my_signature(closeTabSig)
 	def myCloseTab_(self, sender):
 		print "myCloseTab", self, sender
-		if self in close_callbacks:
-			callback = close_callbacks[window]
-			print "close callback:", callback
-			ret = callback()
-			if not ret: return
-			print "really closing"
-			remove_close_callback(self)
+		if not check_close_callback(self): return
 		self.myCloseTab_(sender) # this is no recursion when we exchanged the methods
 
+	@my_signature(commandDispatchForContrSig)
+	def myCommandDispatch_forController_(self, cmd, controller):
+		print "myCommandDispatch_forController_", self, cmd, controller
+		self.myCommandDispatch_forController_(cmd, controller)
+	
 from ctypes import *
 capi = pythonapi
 
@@ -321,6 +327,19 @@ def hook_into_windowShouldClose():
 def hook_into_closeTab():
 	method_exchange("TabStripController", "closeTab:", "myCloseTab:")
 
+def hook_into_commandDispatchForContr():
+	method_exchange("TabStripController", "commandDispatch:forController:", "myCommandDispatch:forController:")
+
+def hook_into_commandDispatch():
+	method_exchange("BrowserWindowController", "commandDispatch:", "myCommandDispatch:")
+
+# it seems, for openWebApp, we need:
+# * hook_into_windowShouldClose, for when we click on the window closebutton
+# * hook_into_commandDispatch, for when we use the NSMenu (or key shortcut)
+def install_webapp_handlers():
+	hook_into_windowShouldClose()
+	hook_into_commandDispatch()
+	
 capi.backtrace.restype = c_int
 capi.backtrace.argtypes = (c_void_p, c_int)
 capi.backtrace_symbols_fd.restype = None
