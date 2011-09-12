@@ -13,6 +13,9 @@
 # http://src.chromium.org/viewvc/chrome/trunk/src/chrome/browser/ui/cocoa/browser_window_controller.h?view=markup
 # http://src.chromium.org/viewvc/chrome/trunk/src/chrome/browser/ui/cocoa/browser_window_controller.mm?view=markup
 
+# http://codesearch.google.com/#lI4R5BeSKxs/ui/cocoa/applescript/browsercrapplication%2Bapplescript.mm&type=cs
+# http://codesearch.google.com/#hfE6470xZHk/chrome/browser/cocoa/applescript/tab_applescript.mm&type=cs
+
 # http://stackoverflow.com/questions/7337986/open-new-window-in-chrome-via-pyobjc-python
 
 # http://pyobjc.sourceforge.net/documentation/pyobjc-core/intro.html
@@ -180,15 +183,16 @@ def openWebApp(url):
 		w.nativeHandle().close()
 	p = make_dock_icon(url, lambda: do_in_mainthread(dock_click_handler), lambda: do_in_mainthread(dock_quit_handler))
 	def w_close_handler():
-		if p.returncode is not None: return True
+		if p.returncode is not None:
+			del close_callbacks[w.nativeHandle().delegate()]
+			return True
 		w.nativeHandle().setIsVisible_(0)
-		del close_callbacks[w.nativeHandle().delegate()]
 		return False
 	close_callbacks[w.nativeHandle().delegate()] = w_close_handler
 	return w
 
 def openGMail():
-	openWebApp("http://mail.google.com")
+	return openWebApp("http://mail.google.com")
 	
 
 def find_close_widget(w):
