@@ -28,6 +28,16 @@ class MyAppDelegate(NSObject):
 	def applicationDidFinishLaunching_(self, notification):
 		#statusbar = NSStatusBar.systemStatusBar()
 		#self.statusitem = statusbar.statusItemWithLength_(NSVariableStatusItemLength)
+		app.setMainMenu_(NSMenu.alloc().init())
+		appleMenu = NSMenu.alloc().initWithTitle_("")
+		appleMenuItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("", None, "")
+		appleMenuItem.setSubmenu_(appleMenu)
+		app.mainMenu().addItem_(appleMenuItem)
+		NSBundle.bundleWithPath_(objc.pathForFramework('/System/Library/Frameworks/ApplicationServices.framework')).load()
+		class NSAppleMenuController(NSObject):
+			def controlMenu_(self, menu): pass
+		NSAppleMenuController.alloc().init().controlMenu_(appleMenu)
+		app.mainMenu().removeItem_(appleMenuItem)
 		
 		menu = NSMenu.alloc().init()
 		menu.addItem_(NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('View Trash', 'view:', ''))
@@ -40,9 +50,10 @@ class MyAppDelegate(NSObject):
 		windowMenuItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Window', None, '')
 		windowMenuItem.setSubmenu_(menu)
 		
-		app.setMainMenu_(NSMenu.alloc().init())
+		#app.mainMenu().addItem_(windowMenuItem)
+		#app.mainMenu().removeItem_(windowMenuItem)
 		app.mainMenu().addItem_(windowMenuItem)
-		app.setWindowsMenu_(menu)
+		#app.setWindowsMenu_(menu)
 		
 		self.window = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
 			NSMakeRect(100,50,300,400),
