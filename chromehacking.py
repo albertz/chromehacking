@@ -167,9 +167,8 @@ def openGMail():
 	url = "http://mail.google.com"
 	w = openPopupWindow(url)
 	def dock_click_handler():
-		do_in_mainthread(lambda: w.nativeHandle().delegate().activate())
+		w.nativeHandle().delegate().activate()
 	def dock_quit_handler():
-		do_in_mainthread(lambda: w.nativeHandle().close())		
-	p = make_dock_icon(url, dock_click_handler, dock_quit_handler)
-	dock_click_handler()
+		w.nativeHandle().close()
+	p = make_dock_icon(url, lambda: do_in_mainthread(dock_click_handler), lambda: do_in_mainthread(dock_quit_handler))
 	
