@@ -7,8 +7,8 @@ import os, sys
 from pprint import pprint
 
 import signal
-signal.signal(signal.SIGABRT, lambda: os._exit(1))
-signal.signal(signal.SIGPIPE, lambda: os._exit(1))
+signal.signal(signal.SIGABRT, lambda *args: os._exit(1))
+signal.signal(signal.SIGPIPE, lambda *args: os._exit(1))
 
 from Foundation import *
 from AppKit import *
