@@ -228,8 +228,9 @@ def my_signature(signature, **kw):
         return selector(func, **kw)
     return makeSignature
 
+windowWillCloseSig = "c12@0:4@8" # BrowserWindowController.windowWillClose_.signature
 class BrowserWindowController(objc.Category(BrowserWindowController)):
-	@my_signature(BrowserWindowController.windowWillClose_.signature)
+	@my_signature(windowWillCloseSig)
 	def myWindowShouldClose_(self, sender):
 		print "myWindowShouldClose", self, sender
 		if self in close_callbacks:
