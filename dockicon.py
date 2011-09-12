@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 
 # http://codesearch.google.com/#u_9_nDrchrw/pygame-1.7.1release/lib/macosx.py&ct=rc&cd=6&q=GetCurrentProcess%20ApplicationServices%20%20file:.py
 # http://codesearch.google.com/#TjZxI4W0_Cw/trunk/cocos/audio/SDL/darwin.py&ct=rc&cd=2&q=GetCurrentProcess%20ApplicationServices%20%20file:.py
@@ -20,6 +20,7 @@ def setIcon(baseurl):
 class MyAppDelegate(NSObject):
 	def applicationShouldHandleReopen_hasVisibleWindows_(self, app, flag):
 		print "click"
+		sys.stdout.flush()
 
 	def applicationDidFinishLaunching_(self, notification):
 		menu = NSMenu.alloc().init()
@@ -36,6 +37,8 @@ class MyAppDelegate(NSObject):
 		
 		try: setIcon(sys.argv[1])
 		except: pass
+		
+		print "Dock icon initialized"
 		
 	def open_window(self):
 		self.window = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(

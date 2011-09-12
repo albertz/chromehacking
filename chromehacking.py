@@ -139,10 +139,37 @@ def openPopupWindow(url):
 	do_in_mainthread(lambda: w.tabs()[0].setURL_(url))
 	return w
 
-def make_dock_icon():
+def make_dock_icon(baseurl, click_handler, quit_handler):
 	from subprocess import Popen, PIPE, STDOUT
-	scriptfn = os.path.dirname(__file__) + "/pyobjcdemo.py"
-	p = Popen(["python", scriptfn], stdin=PIPE, stdout=PIPE, stderr=sys.stderr)
-	p.stdin.close()
+	scriptfn = os.path.dirname(__file__) + "/dockicon.py"
+	p = Popen(["python", scriptfn, baseurl], stdin=PIPE, stdout=PIPE)
+
+	import threading
+	class ThreadWorker(threading.Thread):
+		def __init__(self):
+			super(ThreadWorker, self).__init__()
+			self.setDaemon(True)
+	
+		def run(self):
+			while True:
+				l = p.stdout.readline().strip("\n")
+				if not l: break
+				if l == "click":
+					try: click_handler()
+					except: sys.excepthook(*sys.exc_info())
+			quit_handler()
+			
+	stdout_worker = ThreadWorker()
+	stdout_worker.start()
 	return p
 
+def openGMail():
+	url = "http://mail.google.com"
+	w = openPopupWindow(url)
+	def dock_click_handler():
+		do_in_mainthread(lambda: w.nativeHandle().delegate().activate())
+	def dock_quit_handler():
+		do_in_mainthread(lambda: w.nativeHandle().close())		
+	p = make_dock_icon(url, dock_click_handler, dock_quit_handler)
+	dock_click_handler()
+	
