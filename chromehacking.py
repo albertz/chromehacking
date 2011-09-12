@@ -50,9 +50,12 @@ def do_in_mainthread(f, wait=True):
 	helper.performSelectorOnMainThread_withObject_waitUntilDone_(helper.call_, None, wait)
 	return helper.ret
 
+def fsbrowse(obj):
+	objc.lookUpClass("FSInterpreter").interpreter().browse_(obj)
+	
 FramedBrowserWindow = objc.lookUpClass("FramedBrowserWindow")
 BrowserWindowController = objc.lookUpClass("BrowserWindowController")
-#o = BrowserWindowController.alloc()
+TabStripController = objc.lookUpClass("TabStripController")
 
 # http://www.chromium.org/developers/design-documents/applescript
 # http://codesearch.google.com/#hfE6470xZHk/chrome/browser/cocoa/applescript/window_applescript.mm&type=cs
@@ -184,11 +187,11 @@ def openWebApp(url):
 	p = make_dock_icon(url, lambda: do_in_mainthread(dock_click_handler), lambda: do_in_mainthread(dock_quit_handler))
 	def w_close_handler():
 		if p.returncode is not None:
-			del close_callbacks[w.nativeHandle().delegate()]
+			remove_close_callback(w.nativeHandle())
 			return True
 		w.nativeHandle().setIsVisible_(0)
 		return False
-	close_callbacks[w.nativeHandle().delegate()] = w_close_handler
+	install_close_callback(w.nativeHandle(), w_close_handler)
 	return w
 
 def openGMail():
@@ -218,7 +221,20 @@ def replace_close_widget(w, clazz=CustomCloseWidget):
 		grayFrame.subviews()[i] = newv
 	do_in_mainthread(act)
 
+_close_callbacks_objsnet = {} # any id -> list of ids
 close_callbacks = {} # FramedBrowserWindow id -> callback
+def _close_callbacks_objsnet_list(w):
+	return [w, w.delegate(), w.delegate().tabStripController()]
+def install_close_callback(w, callback):
+	objsnet_list = _close_callbacks_objsnet_list(w)
+	for o in objsnet_list:
+		close_callbacks[o] = callback
+		_close_callbacks_objsnet[o] = objsnet_list
+def remove_close_callback(_o):
+	objsnet_list = _close_callbacks_objsnet[_o]
+	for o in objsnet_list:
+		del close_callbacks[o]
+		del _close_callbacks_objsnet[o]
 
 # copied from objc.signature to avoid warning
 def my_signature(signature, **kw):
@@ -227,6 +243,20 @@ def my_signature(signature, **kw):
     def makeSignature(func):
         return selector(func, **kw)
     return makeSignature
+
+performCloseSig = "v12@0:4@8" # FramedBrowserWindow.performClose_
+class FramedBrowserWindow(objc.Category(FramedBrowserWindow)):
+	@my_signature(performCloseSig)
+	def performClose_(self, sender):
+		print "myPerformClose", self, sender
+		if self in close_callbacks:
+			callback = close_callbacks[self]
+			print "close callback:", callback
+			ret = callback()
+			if not ret: return
+			print "really closing"
+			del close_callbacks[self]
+		NSWindow.performClose_(self, sender)
 
 windowWillCloseSig = "c12@0:4@8" # BrowserWindowController.windowWillClose_.signature
 class BrowserWindowController(objc.Category(BrowserWindowController)):
@@ -239,8 +269,22 @@ class BrowserWindowController(objc.Category(BrowserWindowController)):
 			ret = callback()
 			if not ret: return objc.NO
 			print "really closing"
-			del close_callbacks[self]
-		return self.myWindowShouldClose_(sender)
+			remove_close_callback(self)
+		return self.myWindowShouldClose_(sender) # this is no recursion when we exchanged the methods
+
+closeTabSig = "c12@0:4@8" # TabStripController.closeTab_.signature
+class TabStripController(objc.Category(TabStripController)):
+	@my_signature(closeTabSig)
+	def myCloseTab_(self, sender):
+		print "myCloseTab", self, sender
+		if self in close_callbacks:
+			callback = close_callbacks[window]
+			print "close callback:", callback
+			ret = callback()
+			if not ret: return objc.NO
+			print "really closing"
+			remove_close_callback(self)
+		return self.myCloseTab_(sender) # this is no recursion when we exchanged the methods
 
 from ctypes import *
 capi = pythonapi
@@ -265,11 +309,14 @@ capi.class_getInstanceMethod.argtypes = [c_void_p, c_void_p]
 capi.method_exchangeImplementations.restype = None
 capi.method_exchangeImplementations.argtypes = [c_void_p, c_void_p]
 
-def hook_into_close():
-	clazz = capi.objc_getClass("BrowserWindowController")
-	origCloseSel = capi_get_selector("windowShouldClose:")
-	origClose = capi.class_getInstanceMethod(clazz, origCloseSel)
-	newClose = capi.class_getInstanceMethod(clazz, capi_get_selector("myWindowShouldClose:"))
-	#origClosePlaceholder = capi.class_getInstanceMethod(clazz, capi_get_selector("origClose"))
-	capi.method_exchangeImplementations(origClose, newClose)
-	#capi.method_exchangeImplementations(origClosePlaceholder, origClose)
+def method_exchange(className, origSelName, newSelName):
+	clazz = capi.objc_getClass(className)
+	origMethod = capi.class_getInstanceMethod(clazz, capi_get_selector(origSelName))
+	newMethod = capi.class_getInstanceMethod(clazz, capi_get_selector(newSelName))
+	capi.method_exchangeImplementations(origMethod, newMethod)
+	
+def hook_into_windowShouldClose():
+	method_exchange("BrowserWindowController", "windowShouldClose:", "myWindowShouldClose:")
+
+def hook_into_closeTab():
+	method_exchange("TabStripController", "closeTab:", "myCloseTab:")
