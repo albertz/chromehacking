@@ -182,7 +182,7 @@ def openGMail():
 	def w_close_handler():
 		if p.returncode is not None: return True
 		return False
-	close_callbacks[w.nativeHandle()] = w_close_handler
+	close_callbacks[w.nativeHandle().delegate()] = w_close_handler
 	return w
 
 def find_close_widget(w):
@@ -210,7 +210,16 @@ def replace_close_widget(w, clazz=CustomCloseWidget):
 
 close_callbacks = {} # FramedBrowserWindow id -> callback
 
+# copied from objc.signature to avoid warning
+def my_signature(signature, **kw):
+    from objc._objc import selector
+    kw['signature'] = signature
+    def makeSignature(func):
+        return selector(func, **kw)
+    return makeSignature
+
 class BrowserWindowController(objc.Category(BrowserWindowController)):
+	@my_signature(BrowserWindowController.windowWillClose_.signature)
 	def myWindowShouldClose_(self, sender):
 		print "myWindowShouldClose", self, sender
 		if self in close_callbacks:
