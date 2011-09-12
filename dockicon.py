@@ -6,6 +6,10 @@
 import os, sys
 from pprint import pprint
 
+import signal
+signal.signal(signal.SIGABRT, lambda: os._exit(1))
+signal.signal(signal.SIGPIPE, lambda: os._exit(1))
+
 from Foundation import *
 from AppKit import *
 import objc
@@ -19,9 +23,13 @@ def setIcon(baseurl):
 
 class MyAppDelegate(NSObject):
 	def applicationShouldHandleReopen_hasVisibleWindows_(self, app, flag):
-		print "click"
-		sys.stdout.flush()
-
+		try:
+			print "click"
+			sys.stdout.flush()
+		except: # eg. sigpipe
+			sys.excepthook(*sys.exc_info())
+			os._exit(1)
+			
 	def applicationDidFinishLaunching_(self, notification):
 		menu = NSMenu.alloc().init()
 		menu.addItem_(NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('View Trash', 'view:', ''))

@@ -25,8 +25,8 @@ NSObject = objc.lookUpClass("NSObject")
 NSAutoreleasePool = objc.lookUpClass("NSAutoreleasePool")
 NSScriptCommand = objc.lookUpClass("NSScriptCommand")
 NSThread = objc.lookUpClass("NSThread")
+NSWindow = objc.lookUpClass("NSWindow")
 app = objc.lookUpClass("NSApplication").sharedApplication()
-FramedBrowserWindow = objc.lookUpClass("FramedBrowserWindow")
 _NSThemeCloseWidget = objc.lookUpClass("_NSThemeCloseWidget")
 
 #pool = NSAutoreleasePool.alloc().init()
@@ -47,6 +47,7 @@ def do_in_mainthread(f, wait=True):
 	helper.performSelectorOnMainThread_withObject_waitUntilDone_(helper.call_, None, wait)
 	return helper.ret
 
+FramedBrowserWindow = objc.lookUpClass("FramedBrowserWindow")
 BrowserWindowController = objc.lookUpClass("BrowserWindowController")
 #o = BrowserWindowController.alloc()
 
@@ -150,7 +151,8 @@ def make_dock_icon(baseurl, click_handler, quit_handler):
 		def __init__(self):
 			super(ThreadWorker, self).__init__()
 			self.setDaemon(True)
-	
+			self.quit_handler = quit_handler
+			
 		def run(self):
 			while True:
 				l = p.stdout.readline().strip("\n")
@@ -158,10 +160,14 @@ def make_dock_icon(baseurl, click_handler, quit_handler):
 				if l == "click":
 					try: click_handler()
 					except: sys.excepthook(*sys.exc_info())
-			quit_handler()
+			self.quit_handler()
 			
 	stdout_worker = ThreadWorker()
 	stdout_worker.start()
+	def kill_overwrite():
+		stdout_worker.quit_handler = lambda: None
+		Popen.kill(p)
+	p.kill = kill_overwrite
 	return p
 
 def openGMail():
@@ -172,6 +178,7 @@ def openGMail():
 	def dock_quit_handler():
 		w.nativeHandle().close()
 	p = make_dock_icon(url, lambda: do_in_mainthread(dock_click_handler), lambda: do_in_mainthread(dock_quit_handler))
+	close_callbacks[w.nativeHandle()] = p.kill
 	return w
 
 def find_close_widget(w):
@@ -196,4 +203,46 @@ def replace_close_widget(w, clazz=CustomCloseWidget):
 		newv.retain()
 		grayFrame.subviews()[i] = newv
 	do_in_mainthread(act)
-	
+
+close_callbacks = {} # FramedBrowserWindow id -> callback
+
+class FramedBrowserWindow(objc.Category(FramedBrowserWindow)):
+	def close(self):
+		print "CLOSING", self, self.hash()
+		if self in close_callbacks:
+			callback = close_callbacks[self]
+			print "callback:", callback
+			callback()
+		NSWindow.close(self)
+
+from ctypes import *
+capi = pythonapi
+
+# id objc_getClass(const char *name)
+capi.objc_getClass.restype = c_void_p
+capi.objc_getClass.argtypes = [c_char_p]
+
+# SEL sel_registerName(const char *str)
+capi.sel_registerName.restype = c_void_p
+capi.sel_registerName.argtypes = [c_char_p]
+
+def capi_get_selector(name):
+    return c_void_p(capi.sel_registerName(name))
+
+# Method class_getInstanceMethod(Class aClass, SEL aSelector)
+# Will also search superclass for implementations.
+capi.class_getInstanceMethod.restype = c_void_p
+capi.class_getInstanceMethod.argtypes = [c_void_p, c_void_p]
+
+# void method_exchangeImplementations(Method m1, Method m2)
+capi.method_exchangeImplementations.restype = None
+capi.method_exchangeImplementations.argtypes = [c_void_p, c_void_p]
+
+def hook_into_close():
+	clazz = capi.objc_getClass("FramedBrowserWindow")
+	origCloseSel = capi_get_selector("close")
+	origClose = capi.class_getInstanceMethod(clazz, origCloseSel)
+	newClose = capi.class_getInstanceMethod(clazz, capi_get_selector("myClose"))
+	origClosePlaceholder = capi.class_getInstanceMethod(clazz, capi_get_selector("origClose"))
+	capi.method_exchangeImplementations(origClose, newClose)
+	capi.method_exchangeImplementations(origClosePlaceholder, origClose)
