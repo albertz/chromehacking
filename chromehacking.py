@@ -281,10 +281,10 @@ class TabStripController(objc.Category(TabStripController)):
 			callback = close_callbacks[window]
 			print "close callback:", callback
 			ret = callback()
-			if not ret: return objc.NO
+			if not ret: return
 			print "really closing"
 			remove_close_callback(self)
-		return self.myCloseTab_(sender) # this is no recursion when we exchanged the methods
+		self.myCloseTab_(sender) # this is no recursion when we exchanged the methods
 
 from ctypes import *
 capi = pythonapi
@@ -320,3 +320,15 @@ def hook_into_windowShouldClose():
 
 def hook_into_closeTab():
 	method_exchange("TabStripController", "closeTab:", "myCloseTab:")
+
+capi.backtrace.restype = c_int
+capi.backtrace.argtypes = (c_void_p, c_int)
+capi.backtrace_symbols_fd.restype = None
+capi.backtrace_symbols_fd.argtypes = (c_void_p, c_int, c_int)
+
+def capi_backtrace():
+	N = 100
+	tracePtrs = (c_void_p * N)()
+	c = capi.backtrace(addressof(tracePtrs), N)
+	capi.backtrace_symbols_fd(addressof(tracePtrs), c, sys.stdout.fileno())
+	
