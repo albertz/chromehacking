@@ -171,8 +171,7 @@ def make_dock_icon(baseurl, click_handler, quit_handler):
 	p.kill = kill_overwrite
 	return p
 
-def openGMail():
-	url = "http://mail.google.com"
+def openWebApp(url):
 	w = openPopupWindow(url)
 	def dock_click_handler():
 		w.nativeHandle().setIsVisible_(1)
@@ -183,9 +182,14 @@ def openGMail():
 	def w_close_handler():
 		if p.returncode is not None: return True
 		w.nativeHandle().setIsVisible_(0)
+		del close_callbacks[w.nativeHandle().delegate()]
 		return False
 	close_callbacks[w.nativeHandle().delegate()] = w_close_handler
 	return w
+
+def openGMail():
+	openWebApp("http://mail.google.com")
+	
 
 def find_close_widget(w):
 	if isinstance(w, WindowAppleScript): w = w.nativeHandle()
