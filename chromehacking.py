@@ -160,6 +160,7 @@ def make_dock_icon(baseurl, click_handler, quit_handler):
 				if l == "click":
 					try: click_handler()
 					except: sys.excepthook(*sys.exc_info())
+			p.wait()
 			self.quit_handler()
 			
 	stdout_worker = ThreadWorker()
@@ -178,7 +179,10 @@ def openGMail():
 	def dock_quit_handler():
 		w.nativeHandle().close()
 	p = make_dock_icon(url, lambda: do_in_mainthread(dock_click_handler), lambda: do_in_mainthread(dock_quit_handler))
-	close_callbacks[w.nativeHandle()] = p.kill
+	def w_close_handler():
+		if p.returncode is not None: return True
+		return False
+	close_callbacks[w.nativeHandle()] = w_close_handler
 	return w
 
 def find_close_widget(w):
@@ -208,11 +212,13 @@ close_callbacks = {} # FramedBrowserWindow id -> callback
 
 class FramedBrowserWindow(objc.Category(FramedBrowserWindow)):
 	def close(self):
-		print "CLOSING", self, self.hash()
 		if self in close_callbacks:
 			callback = close_callbacks[self]
-			print "callback:", callback
-			callback()
+			print "close callback:", callback
+			ret = callback()
+			if not ret: return
+			print "really closing"
+			del close_callbacks[self]
 		NSWindow.close(self)
 
 from ctypes import *
