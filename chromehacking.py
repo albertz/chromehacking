@@ -175,12 +175,14 @@ def openGMail():
 	url = "http://mail.google.com"
 	w = openPopupWindow(url)
 	def dock_click_handler():
+		w.nativeHandle().setIsVisible_(1)
 		w.nativeHandle().delegate().activate()
 	def dock_quit_handler():
 		w.nativeHandle().close()
 	p = make_dock_icon(url, lambda: do_in_mainthread(dock_click_handler), lambda: do_in_mainthread(dock_quit_handler))
 	def w_close_handler():
 		if p.returncode is not None: return True
+		w.nativeHandle().setIsVisible_(0)
 		return False
 	close_callbacks[w.nativeHandle().delegate()] = w_close_handler
 	return w
