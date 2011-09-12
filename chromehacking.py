@@ -27,6 +27,7 @@ NSScriptCommand = objc.lookUpClass("NSScriptCommand")
 NSThread = objc.lookUpClass("NSThread")
 app = objc.lookUpClass("NSApplication").sharedApplication()
 FramedBrowserWindow = objc.lookUpClass("FramedBrowserWindow")
+_NSThemeCloseWidget = objc.lookUpClass("_NSThemeCloseWidget")
 
 #pool = NSAutoreleasePool.alloc().init()
 
@@ -171,4 +172,28 @@ def openGMail():
 	def dock_quit_handler():
 		w.nativeHandle().close()
 	p = make_dock_icon(url, lambda: do_in_mainthread(dock_click_handler), lambda: do_in_mainthread(dock_quit_handler))
+	return w
+
+def find_close_widget(w):
+	if isinstance(w, WindowAppleScript): w = w.nativeHandle()
+	contentView = w.contentView()
+	grayFrame = contentView.superview()
+	for i in range(len(grayFrame.subviews())):
+		v = grayFrame.subviews()[i]
+		if isinstance(v, _NSThemeCloseWidget):
+			return v, i, grayFrame
+
+try:
+	class CustomCloseWidget(_NSThemeCloseWidget):
+		pass
+except:
+	CustomCloseWidget = objc.lookUpClass("CustomCloseWidget")
+	
+def replace_close_widget(w, clazz=CustomCloseWidget):
+	def act():
+		v, i, grayFrame = find_close_widget(w)
+		newv = clazz.alloc().init()
+		newv.retain()
+		grayFrame.subviews()[i] = newv
+	do_in_mainthread(act)
 	
