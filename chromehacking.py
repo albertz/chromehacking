@@ -31,7 +31,6 @@ NSThread = objc.lookUpClass("NSThread")
 NSWindow = objc.lookUpClass("NSWindow")
 app = objc.lookUpClass("NSApplication").sharedApplication()
 _NSThemeCloseWidget = objc.lookUpClass("_NSThemeCloseWidget")
-sharedApplication = objc.lookUpClass("NSApplication").sharedApplication()
 
 #pool = NSAutoreleasePool.alloc().init()
 
@@ -263,35 +262,37 @@ class FramedBrowserWindow(objc.Category(FramedBrowserWindow)):
 		if not check_close_callback(self): return
 		NSWindow.performClose_(self, sender)
 
-windowWillCloseSig = "c12@0:4@8" # BrowserWindowController.windowWillClose_.signature
-commandDispatchSig = "v12@0:4@8"
-class BrowserWindowController(objc.Category(BrowserWindowController)):
-	@my_signature(windowWillCloseSig)
-	def myWindowShouldClose_(self, sender):
-		print "myWindowShouldClose", self, sender
-		if not check_close_callback(self): return objc.NO
-		return self.myWindowShouldClose_(sender) # this is no recursion when we exchanged the methods
+if not hasattr(BrowserWindowController, "myCommandDispatch_"):
+	windowWillCloseSig = "c12@0:4@8" # BrowserWindowController.windowWillClose_.signature
+	commandDispatchSig = "v12@0:4@8"
+	class BrowserWindowController(objc.Category(BrowserWindowController)):
+		@my_signature(windowWillCloseSig)
+		def myWindowShouldClose_(self, sender):
+			print "myWindowShouldClose", self, sender
+			if not check_close_callback(self): return objc.NO
+			return self.myWindowShouldClose_(sender) # this is no recursion when we exchanged the methods
+	
+		@my_signature(commandDispatchSig)
+		def myCommandDispatch_(self, cmd):
+			print "myCommandDispatch_", self, cmd
+			if cmd.tag() == 34015: # IDC_CLOSE_TAB
+				if not check_close_callback(self): return			
+			self.myCommandDispatch_(cmd)
 
-	@my_signature(commandDispatchSig)
-	def myCommandDispatch_(self, cmd):
-		print "myCommandDispatch_", self, cmd
-		if cmd.tag() == 34015: # IDC_CLOSE_TAB
-			if not check_close_callback(self): return			
-		self.myCommandDispatch_(cmd)
-
-closeTabSig = "c12@0:4@8" # TabStripController.closeTab_.signature
-commandDispatchForContrSig = "v16@0:4i8@12" # TabStripController.commandDispatch_forController_.signature
-class TabStripController(objc.Category(TabStripController)):
-	@my_signature(closeTabSig)
-	def myCloseTab_(self, sender):
-		print "myCloseTab", self, sender
-		if not check_close_callback(self): return
-		self.myCloseTab_(sender) # this is no recursion when we exchanged the methods
-
-	@my_signature(commandDispatchForContrSig)
-	def myCommandDispatch_forController_(self, cmd, controller):
-		print "myCommandDispatch_forController_", self, cmd, controller
-		self.myCommandDispatch_forController_(cmd, controller)
+if not hasattr(TabStripController, "myCloseTab_"):
+	closeTabSig = "c12@0:4@8" # TabStripController.closeTab_.signature
+	commandDispatchForContrSig = "v16@0:4i8@12" # TabStripController.commandDispatch_forController_.signature
+	class TabStripController(objc.Category(TabStripController)):
+		@my_signature(closeTabSig)
+		def myCloseTab_(self, sender):
+			print "myCloseTab", self, sender
+			if not check_close_callback(self): return
+			self.myCloseTab_(sender) # this is no recursion when we exchanged the methods
+	
+		@my_signature(commandDispatchForContrSig)
+		def myCommandDispatch_forController_(self, cmd, controller):
+			print "myCommandDispatch_forController_", self, cmd, controller
+			self.myCommandDispatch_forController_(cmd, controller)
 	
 from ctypes import *
 capi = pythonapi
