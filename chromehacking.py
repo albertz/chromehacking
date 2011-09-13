@@ -350,4 +350,56 @@ def capi_backtrace():
 	tracePtrs = (c_void_p * N)()
 	c = capi.backtrace(addressof(tracePtrs), N)
 	capi.backtrace_symbols_fd(addressof(tracePtrs), c, sys.stdout.fileno())
+
+
+sharedScriptSuiteReg = objc.lookUpClass("NSScriptSuiteRegistry").sharedScriptSuiteRegistry()
+NSScriptCommandDescription = objc.lookUpClass("NSScriptCommandDescription")
+sharedAppleEventMgr = objc.lookUpClass("NSAppleEventManager").sharedAppleEventManager()
+NSAppleEventDescriptor = objc.lookUpClass("NSAppleEventDescriptor")
+
+from PyObjCTools.TestSupport import fourcc
+
+def register_scripting():
+	cmdDesc = NSScriptCommandDescription.alloc().initWithSuiteName_commandName_dictionary_(
+		"Chromium Suite",
+		"exec Python",
+		{
+			"Name": "exec Python",
+			"CommandClass": "NSScriptCommand", # default behavior
+			"AppleEventCode": "ExPy", # 4-char code
+			"AppleEventClassCode": "CrSu",
+			"Type": "NSString", # return-type
+			"ResultAppleEventCode": "ctxt", # return-type
+			"Arguments": {
+				#"----": {
+				#	"Type": "NSString",
+				#	"AppleEventCode": "comm"
+				#}
+			}
+		}
+	)
+	assert cmdDesc is not None
+	sharedScriptSuiteReg.registerCommandDescription_(cmdDesc)
+
+	sharedAppleEventMgr.setEventHandler_andSelector_forEventClass_andEventID_(
+		appScriptHandler, appScriptHandler.handleExecPy,
+		fourcc("CrSu"), fourcc("ExPy"))
 	
+def handleExecPy(self, ev, replyEv):
+	print "execPython called,",
+	cmd = ev.descriptorForKeyword_(fourcc("comm")).stringValue()
+	print "cmd:", repr(cmd)
+	res = eval(cmd)
+	res = unicode(res)
+	replyEv.setDescriptor_forKeyword_(NSAppleEventDescriptor.descriptorWithString_(res), fourcc("----"))
+	return True
+
+try:
+	class AppScriptHandler(NSObject):
+		def handleExecPy(self, ev, replyEv):
+			try: return handleExecPy(self, ev, replyEv)
+			except: print "Exception:", sys.exc_info()
+			return
+except:
+	AppScriptHandler = objc.lookUpClass("AppScriptHandler")
+appScriptHandler = AppScriptHandler.alloc().init()
