@@ -31,6 +31,7 @@ NSThread = objc.lookUpClass("NSThread")
 NSWindow = objc.lookUpClass("NSWindow")
 app = objc.lookUpClass("NSApplication").sharedApplication()
 _NSThemeCloseWidget = objc.lookUpClass("_NSThemeCloseWidget")
+HoverCloseButton = objc.lookUpClass("HoverCloseButton")
 
 #pool = NSAutoreleasePool.alloc().init()
 
@@ -405,3 +406,18 @@ try:
 except:
 	AppScriptHandler = objc.lookUpClass("AppScriptHandler")
 appScriptHandler = AppScriptHandler.alloc().init()
+
+def getActiveUrl():
+	frameWins = [ w for w in app.orderedWindows() if isinstance(w, FramedBrowserWindow) and w.isVisible() ]
+	if len(frameWins) == 0: return None
+	mainWin = frameWins[0]
+	for w in app.appleScriptWindows():
+		if w.nativeHandle() is mainWin:
+			return w.activeTab().URL()
+
+def make_webapp():
+	url = getActiveUrl()
+	if not url:
+		print >>sys.stderr, "no active URL found"
+		return
+
