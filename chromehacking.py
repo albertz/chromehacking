@@ -31,6 +31,7 @@ NSThread = objc.lookUpClass("NSThread")
 NSWindow = objc.lookUpClass("NSWindow")
 app = objc.lookUpClass("NSApplication").sharedApplication()
 _NSThemeCloseWidget = objc.lookUpClass("_NSThemeCloseWidget")
+sharedApplication = objc.lookUpClass("NSApplication").sharedApplication()
 
 #pool = NSAutoreleasePool.alloc().init()
 
